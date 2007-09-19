@@ -1,7 +1,7 @@
 /*
-  Copyright (c) 1990-2005 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
 
-  See the accompanying file LICENSE, version 2005-Feb-10 or later
+  See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
   If, for some reason, all these files are missing, the Info-ZIP license
   also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
@@ -194,8 +194,25 @@ int set_extra_field(z, z_utim)
 
 #endif /* def NAML$C_MAXRSS */
 
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNA = z->name;
-    FAB_OR_NAM( fab, nam).FAB_OR_NAM_FNS = strlen( z->name);
+    FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNA = z->name;
+    FAB_OR_NAML( fab, nam).FAB_OR_NAML_FNS = strlen( z->name);
+
+#ifdef NAML$M_OPEN_SPECIAL
+    /* 2007-02-28 SMS.
+     * If processing symlinks as symlinks ("-y"), then $OPEN the
+     * link, not the target file.
+     *
+     * (nam.naml$v_open_special gets us the symlink itself instead of
+     * its target.  fab.fab$v_bio is necessary to allow sys$open() to
+     * work.  Without it, you get status %x0001860c, "%RMS-F-ORG,
+     * invalid file organization value".)
+     */
+    if (linkput)
+    {
+        nam.naml$v_open_special = 1;
+        fab.fab$v_bio = 1;
+    }
+#endif /* def NAML$M_OPEN_SPECIAL */
 
     status = sys$open(&fab);
     if (ERR(status))
@@ -534,11 +551,23 @@ struct RAB *vms_open(name)
 
 #endif /* def NAML$C_MAXRSS */
 
-    FAB_OR_NAM( fab, nam)->FAB_OR_NAM_FNA = name;
-    FAB_OR_NAM( fab, nam)->FAB_OR_NAM_FNS = strlen( name);
+    FAB_OR_NAML( fab, nam)->FAB_OR_NAML_FNA = name;
+    FAB_OR_NAML( fab, nam)->FAB_OR_NAML_FNS = strlen( name);
 
     fab->fab$b_fac = FAB$M_GET | FAB$M_BIO;
     fab->fab$l_xab = (char*)fhc;
+
+#ifdef NAML$M_OPEN_SPECIAL
+    /* 2007-02-28 SMS.
+     * If processing symlinks as symlinks ("-y"), then $OPEN the
+     * link, not the target file.  (Note that here the required
+     * fab->fab$v_bio flag was set above.)
+     */
+    if (linkput)
+    {
+        nam->naml$v_open_special = 1;
+    }
+#endif /* def NAML$M_OPEN_SPECIAL */
 
     if (ERR(sys$open(fab)))
     {

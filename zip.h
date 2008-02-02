@@ -11,7 +11,7 @@ ftp://ftp.info-zip.org/pub/infozip/license.html indefinitely and
 a copy at http://www.info-zip.org/pub/infozip/license.html.
 
 
-Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
 For the purposes of this copyright and license, "Info-ZIP" is defined as
 the following set of individuals:
@@ -388,6 +388,7 @@ extern short qlflag;
 #endif
 /* 9/26/04 EG */
 extern int no_wild;             /* wildcards are disabled */
+extern int allow_regex;         /* 1 = allow [list] matching (regex) */
 extern int wild_stop_at_dir;    /* wildcards do not include / in matches */
 #ifdef UNICODE_SUPPORT
   extern int using_utf8;        /* 1 if current character set is UTF-8 */
@@ -450,6 +451,8 @@ extern int output_seekable;     /* 1 = output seekable 3/13/05 EG */
  extern int zip64_entry;        /* current entry needs Zip64 */
  extern int zip64_archive;      /* at least 1 entry needs zip64 */
 #endif
+extern int allow_fifo;          /* Allow reading Unix FIFOs, waiting if pipe open */
+extern int show_files;          /* show files to operate on and exit (=2 log only) */
 
 extern char *tempzip;           /* temp file name */
 extern FILE *y;                 /* output file now global for splits */
@@ -865,6 +868,9 @@ void     bi_init      OF((char *, unsigned int, int));
 #ifdef WIN32
    int ZipIsWinNT         OF((void));                         /* win32.c */
    int ClearArchiveBit    OF((char *));                       /* win32.c */
+# ifdef UNICODE_SUPPORT
+   int ClearArchiveBitW   OF((wchar_t *));                    /* win32.c */
+# endif
 #endif /* WIN32 */
 
 #if (defined(WINDLL) || defined(DLL_ZIPAPI))

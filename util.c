@@ -1,7 +1,7 @@
 /*
   util.c
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -212,7 +212,7 @@ int cs;                 /* flag: force case-sensitive matching */
   }
 
   /* Parse and process the list of characters and ranges in brackets */
-  if (!no_wild && (wchar_t)c == '[')
+  if (!no_wild && allow_regex && (wchar_t)c == '[')
   {
     int e;              /* flag true if next char to be taken literally */
     ZCONST wchar_t *qw; /* pointer to end of [-] group */
@@ -402,7 +402,7 @@ int cs;                 /* flag: force case-sensitive matching */
 
 #ifndef VMS             /* No bracket matching in VMS */
   /* Parse and process the list of characters and ranges in brackets */
-  if (!no_wild && c == '[')
+  if (!no_wild && allow_regex && c == '[')
   {
     int e;              /* flag true if next char to be taken literally */
     ZCONST char *q;     /* pointer to end of [-] group */

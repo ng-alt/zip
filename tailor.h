@@ -325,6 +325,7 @@ IZ_IMP char *mktemp();
 #   include <locale.h>
 # endif /* defined( UNIX) || defined( VMS) */
 # include <wchar.h>
+# include <wctype.h>
 #endif /* def UNICODE_SUPPORT */
 
 #ifdef _MBCS

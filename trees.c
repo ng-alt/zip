@@ -993,13 +993,16 @@ local void send_all_trees(lcodes, dcodes, blcodes)
         Tracev((stderr, "\nbl code %2d ", bl_order[rank]));
         send_bits(bl_tree[bl_order[rank]].Len, 3);
     }
-    Tracev((stderr, "\nbl tree: sent %ld", bits_sent));
+    Tracev((stderr, "\nbl tree: sent %s",
+     zip_fuzofft(bits_sent, NULL, NULL)));
 
     send_tree((ct_data near *)dyn_ltree, lcodes-1); /* send the literal tree */
-    Tracev((stderr, "\nlit tree: sent %ld", bits_sent));
+    Tracev((stderr, "\nlit tree: sent %s",
+     zip_fuzofft(bits_sent, NULL, NULL)));
 
     send_tree((ct_data near *)dyn_dtree, dcodes-1); /* send the distance tree */
-    Tracev((stderr, "\ndist tree: sent %ld", bits_sent));
+    Tracev((stderr, "\ndist tree: sent %ld",
+     zip_fuzofft(bits_sent, NULL, NULL)));
 }
 
 /* ===========================================================================
@@ -1126,8 +1129,9 @@ uzoff_t flush_block(buf, stored_len, eof)
         bi_windup();
         cmpr_len_bits += 7;  /* align on byte boundary */
     }
-    Tracev((stderr,"\ncomprlen %lu(%lu) ", cmpr_bytelen + (cmpr_len_bits>>3),
-           (cmpr_bytelen << 3) + cmpr_len_bits - 7*eof));
+    Tracev((stderr,"\ncomprlen %s(%s) ",
+     zip_fuzofft( cmpr_bytelen + (cmpr_len_bits>>3), NULL, NULL),
+     zip_fuzofft( (cmpr_bytelen << 3) + cmpr_len_bits - 7*eof, NULL, NULL)));
     Trace((stderr, "\n"));
 
     return cmpr_bytelen + (cmpr_len_bits >> 3);

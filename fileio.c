@@ -1,7 +1,7 @@
 /*
   fileio.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -601,9 +601,7 @@ int newnamew(namew, isdir, casesensitive)
 
       if (current - scan_start > scan_delay) {
         if (scan_last == 0) {
-          fprintf(mesg, "Scanning files ");
-          fflush(mesg);
-          mesg_line_started = 1;
+          zipmessage_nl("Scanning files ", 0);
           scan_last = current;
         }
         if (current - scan_last > scan_dot_time) {
@@ -868,9 +866,7 @@ int newname(name, isdir, casesensitive)
 
       if (current - scan_start > scan_delay) {
         if (scan_last == 0) {
-          fprintf(mesg, "Scanning files ");
-          fflush(mesg);
-          mesg_line_started = 1;
+          zipmessage_nl("Scanning files ", 0);
           scan_last = current;
         }
         if (current - scan_last > scan_dot_time) {
@@ -2420,7 +2416,13 @@ char *get_in_split_path(base_path, disk_number)
    */
 
   if (num == total_disks) {
-    strcpy(ext, "zip");
+    /* last disk is base path */
+    if ((split_path = malloc(strlen(base_path) + 1)) == NULL) {
+      ZIPERR(ZE_MEM, "base path");
+    }
+    strcpy(split_path, base_path);
+
+    return split_path;
   } else {
     if (num > 99999) {
       ZIPERR(ZE_BIG, "More than 99999 splits needed");
@@ -2667,16 +2669,38 @@ size_t bfwrite(buffer, size, count, mode)
 #if defined(UNIX) && !defined(NO_MKSTEMP)
         {
           int yd;
+          int i;
 
           /* use mkstemp to avoid race condition and compiler warning */
-          strcpy(errbuf, "ziXXXXXX");
-          if ((yd = mkstemp(errbuf)) == EOF) {
-            ZIPERR(ZE_TEMP, errbuf);
+
+          if (tempath != NULL)
+          {
+            /* if -b used to set temp file dir use that for split temp */
+            if ((tempzip = malloc(strlen(tempath) + 12)) == NULL) {
+              ZIPERR(ZE_MEM, "allocating temp filename");
+            }
+            strcpy(tempzip, tempath);
+            if (lastchar(tempzip) != '/')
+              strcat(tempzip, "/");
           }
-          if ((tempzip = malloc(strlen(errbuf) + 1)) == NULL) {
+          else
+          {
+            /* create path by stripping name and appending template */
+            if ((tempzip = malloc(strlen(zipfile) + 12)) == NULL) {
             ZIPERR(ZE_MEM, "allocating temp filename");
+            }
+            strcpy(tempzip, zipfile);
+            for(i = strlen(tempzip); i > 0; i--) {
+              if (tempzip[i - 1] == '/')
+                break;
+            }
+            tempzip[i] = '\0';
           }
-          strcpy(tempzip, errbuf);
+          strcat(tempzip, "ziXXXXXX");
+
+          if ((yd = mkstemp(tempzip)) == EOF) {
+            ZIPERR(ZE_TEMP, tempzip);
+          }
           if ((y = fdopen(yd, FOPW_TMP)) == NULL) {
             ZIPERR(ZE_TEMP, tempzip);
           }
@@ -3039,6 +3063,9 @@ int is_ascii_stringw(wstring)
   wchar_t *pw;
   wchar_t cw;
 
+  if (wstring == NULL)
+    return 0;
+
   for (pw = wstring; (cw = *pw) != '\0'; pw++) {
     if (cw > 0x7F) {
       return 0;
@@ -3057,6 +3084,9 @@ int is_ascii_string(mbstring)
 {
   char *p;
   uch c;
+
+  if (mbstring == NULL)
+    return 0;
 
   for (p = mbstring; (c = (uch)*p) != '\0'; p++) {
     if (c > 0x7F) {

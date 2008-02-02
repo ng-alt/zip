@@ -1,7 +1,7 @@
 /*
   globals.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -50,6 +50,7 @@ int translate_eol = 0;  /* Translate end-of-line LF -> CR LF */
 #endif
 /* 9/26/04 */
 int no_wild = 0;             /* 1 = wildcards are disabled */
+int allow_regex = 0;         /* 1 = allow [list] matching */
 #ifdef WILD_STOP_AT_DIR
    int wild_stop_at_dir = 1; /* default wildcards do not include / in matches */
 #else
@@ -70,7 +71,7 @@ uzoff_t des_csize = 0;  /* Data descriptor csize */
 uzoff_t des_usize = 0;  /* Data descriptor usize */
 
 /* dots 10/20/04 */
-zoff_t dot_size = 0;          /* buffers processed in deflate per dot, 0 = no dots */
+zoff_t dot_size = 0;          /* bytes processed in deflate per dot, 0 = no dots */
 zoff_t dot_count = 0;         /* buffers seen, recyles at dot_size */
 /* status 10/30/04 */
 int display_counts = 0;       /* display running file count */
@@ -108,6 +109,8 @@ int use_descriptors = 0;      /* 1=use data descriptors 12/29/04 */
 int zip_to_stdout = 0;        /* output zipfile to stdout 12/30/04 */
 int allow_empty_archive = 0;  /* if no files, create empty archive anyway 12/28/05 */
 int copy_only = 0;            /* 1=copying archive entries only */
+int allow_fifo = 0;           /* 1=allow reading Unix FIFOs, waiting if pipe open */
+int show_files = 0;           /* show files to operate on and exit (=2 log only) */
 
 int output_seekable = 1;      /* 1 = output seekable 3/13/05 EG */
 

@@ -1,7 +1,7 @@
 /*
   zipup.c - Zip 3
 
-  Copyright (c) 1990-2007 Info-ZIP.  All rights reserved.
+  Copyright (c) 1990-2008 Info-ZIP.  All rights reserved.
 
   See the accompanying file LICENSE, version 2007-Mar-4 or later
   (the contents of which are also included in zip.h) for terms of use.
@@ -216,7 +216,8 @@ local ftype ifile;              /* file to compress */
     local zoff_t isize;         /* input file size. global only for debugging */
 #endif /* ?DEBUG */
   /* If file_read detects binary it sets this flag - 12/16/04 EG */
-  local int file_binary = 0;
+  local int file_binary = 0;        /* first buf */
+  local int file_binary_final = 0;  /* for bzip2 for entire file.  assume text until find binary */
 
 
 /* moved check to function 3/14/05 EG */
@@ -428,6 +429,7 @@ struct zlist far *z;    /* zip entry to compress */
   isdir = z->iname[z->nam-1] == (char)0x2f; /* ascii[(unsigned)('/')] */
 
   file_binary = -1;      /* not set, set after first read */
+  file_binary_final = 0; /* not set, set after first read */
 
 #if defined(UNICODE_SUPPORT) && defined(WIN32)
   if (!no_win32_wide)
@@ -1782,6 +1784,11 @@ int *cmpr_method;
         bstrm.next_in = (char *)f_ibuf;
     }
     bstrm.avail_in = file_read(bstrm.next_in, ibuf_sz);
+    if (file_binary_final == 0) {
+      /* check for binary as library does not */
+      if (!is_text_buf(bstrm.next_in, ibuf_sz))
+        file_binary_final = 1;
+    }
     if (bstrm.avail_in < ibuf_sz) {
         unsigned more = file_read(bstrm.next_in + bstrm.avail_in,
                                   (ibuf_sz - bstrm.avail_in));
@@ -1794,8 +1801,8 @@ int *cmpr_method;
     bstrm.next_out = (char *)f_obuf;
     bstrm.avail_out = OBUF_SZ;
 
-    if (!maybe_stored) while (bstrm.avail_in != 0 &&
-     bstrm.avail_in != (unsigned) EOF) {
+    if (!maybe_stored) {
+      while (bstrm.avail_in != 0 && bstrm.avail_in != (unsigned) EOF) {
         err = BZ2_bzCompress(&bstrm, BZ_RUN);
         if (err != BZ_RUN_OK && err != BZ_STREAM_END) {
             sprintf(errbuf, "unexpected bzlib compress error %d", err);
@@ -1846,8 +1853,22 @@ int *cmpr_method;
             bstrm.next_in = (char *)f_ibuf;
 #endif
             bstrm.avail_in = file_read(bstrm.next_in, ibuf_sz);
+            if (file_binary_final == 0) {
+              /* check for binary as library does not */
+              if (!is_text_buf(bstrm.next_in, ibuf_sz))
+                file_binary_final = 1;
+            }
         }
+      }
     }
+
+    /* binary or text */
+    if (file_binary_final)
+      /* found binary in file */
+      z_entry->att = (ush)BINARY;
+    else
+      /* text file */
+      z_entry->att = (ush)ASCII;
 
     do {
         err = BZ2_bzCompress(&bstrm, BZ_FINISH);

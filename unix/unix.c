@@ -208,11 +208,17 @@ int caseflag;           /* true to force case-sensitive match */
   else if ((s.st_mode & S_IFIFO) == S_IFIFO)
 #endif
   {
-    /* FIFO (Named Pipe) - handle as normal file */
-    /* add or remove name of FIFO */
-    if (noisy) zipwarn("Reading FIFO (Named Pipe): ", n);
-    if ((m = newname(n, 0, caseflag)) != ZE_OK)
-      return m;
+    if (allow_fifo) {
+      /* FIFO (Named Pipe) - handle as normal file */
+      /* add or remove name of FIFO */
+      /* zip will stop if FIFO is open and wait for pipe to be fed and closed */
+      if (noisy) zipwarn("Reading FIFO (Named Pipe): ", n);
+      if ((m = newname(n, 0, caseflag)) != ZE_OK)
+        return m;
+    } else {
+      zipwarn("ignoring FIFO (Named Pipe) - use -FI to read: ", n);
+      return ZE_OK;
+    }
   } /* S_IFIFO */
   else
     zipwarn("ignoring special file: ", n);

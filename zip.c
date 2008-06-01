@@ -147,11 +147,14 @@ local long add_name OF((char *filearg));
 local int DisplayRunningStats OF((void));
 local int BlankRunningStats OF((void));
 
-#if (!defined(MACOS) && !defined(WINDLL))
-local void check_zipfile OF((char *zipname, char *zippath));
+#if !defined(WINDLL)
 local void version_info OF((void));
+# if !defined(MACOS)
 local void zipstdout OF((void));
-#endif /* !MACOS && !WINDLL */
+# endif /* !MACOS */
+local int check_unzip_version OF((char *unzippath));
+local void check_zipfile OF((char *zipname, char *zippath));
+#endif /* !WINDLL */
 
 /* structure used by add_filter to store filters */
 struct filterlist_struct {
@@ -468,21 +471,31 @@ int nl;             /* 1 = add nl to end */
    open then also write message to log file. */
 {
   if (noisy) {
-    fprintf(mesg, "%s", a);
+    if (a && strlen(a)) {
+      fprintf(mesg, "%s", a);
+      mesg_line_started = 1;
+    }
     if (nl) {
-      fprintf(mesg, "\n");
-      mesg_line_started = 0;
-    } else {
+      if (mesg_line_started) {
+        fprintf(mesg, "\n");
+        mesg_line_started = 0;
+      }
+    } else if (a && strlen(a)) {
       mesg_line_started = 1;
     }
     fflush(mesg);
   }
   if (logfile) {
-    fprintf(logfile, "%s", a);
+    if (a && strlen(a)) {
+      fprintf(logfile, "%s", a);
+      logfile_line_started = 1;
+    }
     if (nl) {
-      fprintf(logfile, "\n");
-      logfile_line_started = 0;
-    } else {
+      if (logfile_line_started) {
+        fprintf(logfile, "\n");
+        logfile_line_started = 0;
+      }
+    } else if (a && strlen(a)) {
       logfile_line_started = 1;
     }
     fflush(logfile);
@@ -561,7 +574,7 @@ local void help()
 "  The default action is to add or replace zipfile entries from list.",
 " ",
 "  -f   freshen: only changed files  -u   update: only changed or new files",
-"  -d   delete entries in zipfile    -m   move into zipfile (delete files)",
+"  -d   delete entries in zipfile    -m   move into zipfile (delete OS files)",
 "  -r   recurse into directories     -j   junk (don't record) directory names",
 "  -0   store only                   -l   convert LF to CR LF (-ll CR LF to LF)",
 "  -1   compress faster              -9   compress better",
@@ -589,7 +602,7 @@ local void help()
 "  can include the special name - to compress standard input.",
 "  If zipfile and list are omitted, zip compresses stdin to stdout.",
 "  -f   freshen: only changed files  -u   update: only changed or new files",
-"  -d   delete entries in zipfile    -m   move into zipfile (delete files)",
+"  -d   delete entries in zipfile    -m   move into zipfile (delete OS files)",
 "  -r   recurse into directories     -j   junk (don't record) directory names",
 #ifdef THEOS
 "  -0   store only                   -l   convert CR to CR LF (-ll CR LF to CR)",
@@ -758,10 +771,12 @@ local void help_extended()
 "    *       matches any number of characters, including zero",
 "    [list]  matches char in list (regex), can do range [ac-f], all but [!bf]",
 "  If port supports [], must escape [ as [[] or use -nw to turn off wildcards",
-"  Normally * crosses dir bounds in path, e.g. 'a*b' can match 'ac/db'.  If",
-"   -W option used, * does not cross dir bounds but ** does",
 "  For shells that expand wildcards, escape (\\* or \"*\") so zip can recurse",
 "    zip zipfile -r . -i \"*.h\"",
+"",
+"  Normally * crosses dir bounds in path, e.g. 'a*b' can match 'ac/db'.  If",
+"   -ws option used, * does not cross dir bounds but ** does",
+"",
 "  For DOS and Windows, [list] is now disabled unless the new option",
 "  -RE       enable [list] (regular expression) matching",
 "  is used to avoid problems with file paths containing \"[\" and \"]\":",
@@ -943,7 +958,7 @@ local void help_extended()
 "  -su       as -sf but show escaped UTF-8 Unicode names also if exist",
 "  -sU       as -sf but show escaped UTF-8 Unicode names instead",
 "  Any character not in the current locale is escaped as #Uxxxx, where x",
-"  is hex digit, if 16-bit code is sufficient, or #Lxxxxxxxx if 32-bits",
+"  is hex digit, if 16-bit code is sufficient, or #Lxxxxxx if 24-bits",
 "  are needed.  If add -UN=e, Zip escapes all non-ASCII characters.",
 "",
 "Unicode:",
@@ -956,30 +971,32 @@ local void help_extended()
 "  can rename entries).  If these do not match, use below options to",
 "  set what Zip does:",
 "      -UN=Quit     - if mismatch, exit with error",
-"      -UN=Warn     - if mismatch, issue warning, ignore (default)",
-"      -UN=Ignore   - if mismatch, quietly use standard path instead",
-"      -UN=No       - ignore any Unicode paths, use standard paths for all",
+"      -UN=Warn     - if mismatch, warn, ignore UTF-8 (default)",
+"      -UN=Ignore   - if mismatch, quietly ignore UTF-8",
+"      -UN=No       - ignore any UTF-8 paths, use standard paths for all",
 "  An exception to -UN=N are entries with new UTF-8 bit set (instead",
 "  of using extra fields).  These are always handled as Unicode.",
+"",
 "  Normally Zip escapes all chars outside current char set, but leaves",
 "  as is supported chars, which may not be OK in path names.  -UN=Escape",
 "  escapes any character not ASCII:",
 "    zip -sU -UN=e archive",
 "  Can use either normal path or escaped Unicode path on command line",
 "  to match files in archive.",
-#ifdef UNICODE_ALLOW_FORCE
 "",
-"  The AppNote now supports storing UTF-8 in the standard path and",
-"  comment of entries if new flag bit 11 is set.  Currently -UN=f forces",
-"  this for paths, but these entries may not be readable on all but",
-"  UTF-8 systems unless an unzip that supports this new bit is used:",
-"      -UN=Force    - force use UTF-8 for standard path and comment",
-"  Do not use this.  Bit 11 is now automatically set if zip detects",
-"  the local character set is UTF-8 and this bit should not be used",
-"  otherwise.  This option is for testing only.",
-#endif
-"  Support of Unicode comments may be added by release.  Storage of",
-"  UTF-8 comments on UTF-8 native systems is already supported.",
+"  Zip now stores UTF-8 in entry path and comment fields on systems",
+"  where UTF-8 char set is default, such as on most modern Unix systems,",
+"  and UTF-8 in new extra fields, and an escaped version in standard",
+"  path and comment, on other systems for backward compatibility.",
+"  Option -UN=UTF8 will force storing UTF-8 in standard path and comment",
+"  field:",
+"      -UN=UTF8     - force storing UTF-8 for standard path and comment",
+"  This option can be useful for multi-byte char sets on Windows where",
+"  escaped paths and comments can be too long to be valid as the UTF-8",
+"  versions tend to be shorter.",
+"",
+"  Only UTF-8 comments on UTF-8 native systems supported.  UTF-8 comments",
+"  for other systems planned in next release.",
 "",
 "Self extractor:",
 "  -A        Adjust offsets - a self extractor is created by prepending",
@@ -1001,7 +1018,7 @@ local void help_extended()
 "  -sc       show command line arguments as processed and exit",
 "  -so       show all available options on this system",
 "  -X        default=strip old extra fields, -X- keep old, -X strip most",
-"  -W        wildcards don't span directory boundaries in paths",
+"  -ws       wildcards don't span directory boundaries in paths",
 ""
   };
 
@@ -1090,7 +1107,7 @@ local void version_info()
     bz_opt_ver2,
     bz_opt_ver3,
 #endif
-#ifndef NO_SYMLINKS
+#ifdef S_IFLNK
 # ifdef VMS
     "SYMLINK_SUPPORT      (symbolic links supported, if C RTL permits)",
 # else
@@ -1110,6 +1127,16 @@ local void version_info()
 #ifdef UNICODE_SUPPORT
     "UNICODE_SUPPORT      (store and read UTF-8 Unicode paths)",
 #endif
+
+#ifdef UNIX
+    "STORE_UNIX_UIDs_GIDs (store UID/GID sizes/values using new extra field)",
+# ifdef UIDGID_NOT_16BIT
+    "UIDGID_NOT_16BIT     (old Unix 16-bit UID/GID extra field not used)",
+# else
+    "UIDGID_16BIT         (old Unix 16-bit UID/GID extra field also used)",
+# endif
+#endif
+
 #if CRYPT && defined(PASSWD_FROM_STDIN)
     "PASSWD_FROM_STDIN",
 #endif /* CRYPT & PASSWD_FROM_STDIN */
@@ -1905,10 +1932,11 @@ int set_filetype(out_path)
 #define o_UN            0x140
 #define o_ve            0x141
 #define o_VV            0x142
-#define o_ww            0x143
-#define o_z64           0x144
+#define o_ws            0x143
+#define o_ww            0x144
+#define o_z64           0x145
 #ifdef UNICODE_TEST
-#define o_sC            0x145
+#define o_sC            0x146
 #endif
 
 
@@ -1971,7 +1999,7 @@ struct option_struct far options[] = {
     {"f",  "freshen",     o_NO_VALUE,       o_NOT_NEGATABLE, 'f',  "freshen existing archive entries"},
     {"fd", "force-descriptors", o_NO_VALUE, o_NOT_NEGATABLE, o_des,"force data descriptors as if streaming"},
 #ifdef ZIP64_SUPPORT
-    {"fz", "force-zip64", o_NO_VALUE,       o_NOT_NEGATABLE, o_z64,"force use of Zip64 format"},
+    {"fz", "force-zip64", o_NO_VALUE,       o_NEGATABLE,     o_z64,"force use of Zip64 format, negate prevents"},
 #endif
     {"g",  "grow",        o_NO_VALUE,       o_NOT_NEGATABLE, 'g',  "grow existing archive instead of replace"},
 #ifndef WINDLL
@@ -2055,7 +2083,7 @@ struct option_struct far options[] = {
     {"w",  "VMS-versions", o_NO_VALUE,      o_NOT_NEGATABLE, 'w',  "store VMS versions"},
     {"ww", "VMS-dot-versions", o_NO_VALUE,  o_NOT_NEGATABLE, o_ww, "store VMS versions as \".nnn\""},
 #endif /* VMS */
-    {"W",  "wild-stop-dirs", o_NO_VALUE,    o_NOT_NEGATABLE, 'W',  "* stops at /, ** includes any /"},
+    {"ws", "wild-stop-dirs", o_NO_VALUE,    o_NOT_NEGATABLE, o_ws,  "* stops at /, ** includes any /"},
     {"x",  "exclude",     o_VALUE_LIST,     o_NOT_NEGATABLE, 'x',  "exclude files matching patterns"},
 /*    {"X",  "no-extra",    o_NO_VALUE,       o_NOT_NEGATABLE, 'X',  "no extra"},
 */
@@ -2160,18 +2188,29 @@ char **argv;            /* command line tokens */
   /* the argument expansion from the standard library is full of bugs */
   /* use mine instead */
   _setargv(&argc, &argv);
-  setlocale(LC_CTYPE,"I");
+  setlocale(LC_CTYPE, "I");
 #else
-  SETLOCALE(LC_CTYPE,"");
+  SETLOCALE(LC_CTYPE, "");
 #endif
 
 #ifdef UNICODE_SUPPORT
 # ifdef UNIX
+  /* For Unix, set the locale to UTF-8.  Any UTF-8 locale is
+     OK and they should all be the same.  This allows seeing,
+     writing, and displaying (if the fonts are loaded) all
+     characters in UTF-8. */
   {
-    char *loc = setlocale(LC_CTYPE, "en_GB.UTF-8");
+    char *loc;
 
     /*
-    printf("langinfo %s\n", nl_langinfo(CODESET));
+      loc = setlocale(LC_CTYPE, NULL);
+      printf("  Initial language locale = '%s'\n", loc);
+    */
+
+    loc = setlocale(LC_CTYPE, "en_US.UTF-8");
+
+    /*
+      printf("langinfo %s\n", nl_langinfo(CODESET));
     */
 
     if (loc != NULL) {
@@ -2312,15 +2351,16 @@ char **argv;            /* command line tokens */
   output_seekable = 1;    /* 1 = output seekable 3/13/05 EG */
 
 #ifdef ZIP64_SUPPORT      /* zip64 support 10/4/03 */
-  force_zip64 = 0;        /* if 1 force entries to be zip64 */
+  force_zip64 = -1;       /* if 1 force entries to be zip64 */
                           /* mainly for streaming from stdin */
   zip64_entry = 0;        /* current entry needs Zip64 */
   zip64_archive = 0;      /* if 1 then at least 1 entry needs zip64 */
 #endif
 
-#ifdef UNICODE_ALLOW_FORCE
-  unicode_force = 0;      /* 1=force storing UTF-8 as standard per AppNote bit 11 */
+#ifdef UNICODE_SUPPORT
+  utf8_force = 0;         /* 1=force storing UTF-8 as standard per AppNote bit 11 */
 #endif
+
   unicode_escape_all = 0; /* 1=escape all non-ASCII characters in paths */
   unicode_mismatch = 1;   /* unicode mismatch is 0=error, 1=warn, 2=ignore, 3=no */
 
@@ -2338,12 +2378,13 @@ char **argv;            /* command line tokens */
   key = NULL;             /* Scramble password if scrambling */
   key_needed = 0;         /* Need scramble password */
   tempath = NULL;         /* Path for temporary files */
-  found = NULL;           /* where in found, or new found entry */
-  fnxt = &found;
   patterns = NULL;        /* List of patterns to be matched */
   pcount = 0;             /* number of patterns */
   icount = 0;             /* number of include only patterns */
   Rcount = 0;             /* number of -R include patterns */
+
+  found = NULL;           /* List of names found, or new found entry */
+  fnxt = &found;
 
   /* used by get_option */
   argcnt = 0;             /* size of args */
@@ -2417,9 +2458,6 @@ char **argv;            /* command line tokens */
 #endif
   filter_match_case = 1;      /* default is to match case when matching archive entries */
   allow_fifo = 0;             /* 1=allow reading Unix FIFOs, waiting if pipe open */
-
-  found = NULL;   /* List of names found */
-  fnxt = &found;
 
 #if !defined(MACOS) && !defined(USE_ZIPMAIN)
   retcode = setjmp(zipdll_error_return);
@@ -2631,6 +2669,12 @@ char **argv;            /* command line tokens */
         case o_AC:
           clear_archive_bits = 1; break;
         case o_AS:
+          /* Since some directories could be empty if no archive bits are
+             set for files in a directory, don't add directory entries (-D).
+             Just files with the archive bit set are added, including paths
+             (unless paths are excluded).  All major unzips should create
+             directories for the paths as needed. */
+          dirnames = 0;
           only_archive_set = 1; break;
 #endif /* MSDOS || OS2 || WIN32 */
         case 'b':   /* Specify path for temporary file */
@@ -2701,7 +2745,7 @@ char **argv;            /* command line tokens */
             free(value);
           } else {
             dot_size = ReadNumString(value);
-            if (dot_size == (uzoff_t)-1) {
+            if (dot_size == (zoff_t)-1) {
               sprintf(errbuf, "option -ds (--dot-size) has bad size:  '%s'",
                       value);
               free(value);
@@ -3058,20 +3102,14 @@ char **argv;            /* command line tokens */
           } else if (abbrevmatch("escape", value, 0, 1)) {
             /* escape all non-ASCII characters */
             unicode_escape_all = 1;
-#ifdef UNICODE_ALLOW_FORCE
-          } else if (abbrevmatch("force", value, 0, 1)) {
+
+          } else if (abbrevmatch("UTF8", value, 0, 1)) {
             /* force storing UTF-8 as standard per AppNote bit 11 */
-            unicode_force = 1;
-            zipwarn("-UN=force not done", "");
-            free(value);
-            ZIPERR(ZE_PARMS, "-UN (unicode) bad value");
-#endif
+            utf8_force = 1;
+
           } else {
-#ifdef UNICODE_ALLOW_FORCE
-            zipwarn("-UN must be Quit, Warn, Ignore, No, Escape, or Force: ", value);
-#else
-            zipwarn("-UN must be Quit, Warn, Ignore, No, or Escape: ", value);
-#endif
+            zipwarn("-UN must be Quit, Warn, Ignore, No, Escape, or UTF8: ", value);
+
             free(value);
             ZIPERR(ZE_PARMS, "-UN (unicode) bad value");
           }
@@ -3170,7 +3208,7 @@ char **argv;            /* command line tokens */
         case o_ww:   /* Append the VMS version number as ".nnn". */
           vmsver |= 3;  break;
 #endif /* VMS */
-        case 'W':   /* Wildcards do not include directory boundaries in matches */
+        case o_ws:  /* Wildcards do not include directory boundaries in matches */
           wild_stop_at_dir = 1;
           break;
 
@@ -3252,7 +3290,12 @@ char **argv;            /* command line tokens */
 
 #ifdef ZIP64_SUPPORT
         case o_z64:   /* Force creation of Zip64 entries */
-          force_zip64 = 1; break;
+          if (negated) {
+            force_zip64 = 0;
+          } else {
+            force_zip64 = 1;
+          }
+          break;
 #endif
 
         case o_NON_OPTION_ARG:
@@ -3656,7 +3699,7 @@ char **argv;            /* command line tokens */
   }
 
   if (action != ARCHIVE && (recurse == 2 || pcount) && first_listarg == 0 &&
-      (kk < 3 || (action != UPDATE && action != FRESHEN))) {
+      !filelist && (kk < 3 || (action != UPDATE && action != FRESHEN))) {
     ZIPERR(ZE_PARMS, "nothing to select from");
   }
 
@@ -4575,28 +4618,35 @@ char **argv;            /* command line tokens */
         }
 #endif
 #ifdef UNICODE_SUPPORT
-        if (z->ouname && (show_files == 3 || show_files == 4)) {
+        if (show_files == 3 || show_files == 4) {
           /* su, su- */
-          /* Include escaped Unicode names */
-          if (noisy && show_files == 3)
-            fprintf(mesg, "     Escaped Unicode:  %s\n", z->ouname);
-          if (logfile)
-            fprintf(logfile, "     Escaped Unicode:  %s\n", z->ouname);
-        }
-        if (z->ouname && (show_files == 5 || show_files == 6)) {
-          /* sU, sU- */
-          /* Include escaped Unicode names */
-          if (noisy && show_files == 5) {
-            if (z->ouname)
-              fprintf(mesg, "  %s\n", z->ouname);
-            else
-              fprintf(mesg, "  %s\n", z->oname);
+          /* Include escaped Unicode name if exists under standard name */
+          if (z->ouname) {
+            if (noisy && show_files == 3)
+              fprintf(mesg, "     Escaped Unicode:  %s\n", z->ouname);
+            if (logfile)
+              fprintf(logfile, "     Escaped Unicode:  %s\n", z->ouname);
           }
-          if (logfile) {
-            if (z->ouname)
+        }
+        if (show_files == 5 || show_files == 6) {
+          /* sU, sU- */
+          /* Display only escaped Unicode name if exists or standard name */
+          if (z->ouname) {
+            /* Unicode name */
+            if (noisy && show_files == 5) {
+              fprintf(mesg, "  %s\n", z->ouname);
+            }
+            if (logfile) {
               fprintf(logfile, "  %s\n", z->ouname);
-            else
+            }
+          } else {
+            /* No Unicode name so use standard name */
+            if (noisy && show_files == 5) {
+              fprintf(mesg, "  %s\n", z->oname);
+            }
+            if (logfile) {
               fprintf(logfile, "  %s\n", z->oname);
+            }
           }
         }
 #endif
@@ -4606,11 +4656,26 @@ char **argv;            /* command line tokens */
       count++;
       if ((zoff_t)f->usize > 0)
         bytes += f->usize;
-      if (noisy && (show_files == 1 || show_files == 3 || show_files == 5))
-        /* sf, su, sU */
-        fprintf(mesg, "  %s\n", f->oname);
-      if (logfile)
-        fprintf(logfile, "  %s\n", f->oname);
+#ifdef UNICODE_SUPPORT
+      if (unicode_escape_all) {
+        char *escaped_unicode;
+        escaped_unicode = local_to_escape_string(f->zname);
+        if (noisy && (show_files == 1 || show_files == 3 || show_files == 5))
+          /* sf, su, sU */
+          fprintf(mesg, "  %s\n", escaped_unicode);
+        if (logfile)
+          fprintf(logfile, "  %s\n", escaped_unicode);
+        free(escaped_unicode);
+      } else {
+#endif
+        if (noisy && (show_files == 1 || show_files == 3 || show_files == 5))
+          /* sf, su, sU */
+          fprintf(mesg, "  %s\n", f->oname);
+        if (logfile)
+          fprintf(logfile, "  %s\n", f->oname);
+#ifdef UNICODE_SUPPORT
+      }
+#endif
     }
     if (noisy || logfile == NULL)
       fprintf(mesg, "Total %s entries (%s bytes)\n",
@@ -4872,11 +4937,11 @@ char **argv;            /* command line tokens */
      stdin and writing stdout.  This is set in putlocal() for each file. */
 #if 0
   /* If using descriptors and Zip64 enabled force Zip64 3/13/05 EG */
-#ifdef ZIP64_SUPPORT
-  if (use_descriptors) {
+# ifdef ZIP64_SUPPORT
+  if (use_descriptors && force_zip64 != 0) {
     force_zip64 = 1;
   }
-#endif
+# endif
 #endif
 
   /* if archive exists, not streaming and not deleting or growing, copy
@@ -5410,15 +5475,19 @@ char **argv;            /* command line tokens */
     z->zuname = NULL;         /* externalized UTF-8 name for matching */
     z->ouname = NULL;         /* display version of UTF-8 name with OEM */
 
-#ifdef UNICODE_ALLOW_FORCE
+#if 0
     /* New AppNote bit 11 allowing storing UTF-8 in path */
-    if (unicode_force && f->uname) {
-      free(z->iname);
-      if ((z->iname = malloc(strlen(f->uname) + 1)) == NULL)
+    if (utf8_force && f->uname) {
+      if (f->iname)
+        free(f->iname);
+      if ((f->iname = malloc(strlen(f->uname) + 1)) == NULL)
         ZIPERR(ZE_MEM, "Unicode bit 11");
-      strcpy(z->iname, f->uname);
-      if (z->iname)
-        free(z->iname);
+      strcpy(f->iname, f->uname);
+# ifdef WIN32
+      if (f->inamew)
+        free(f->inamew);
+      f->inamew = utf8_to_wchar_string(f->iname);
+# endif
     }
 #endif
 

@@ -1,5 +1,8 @@
 # Makefile for Zip, ZipNote, ZipCloak and ZipSplit
 
+include config.mk
+include config.in
+
 # what you can make ...
 all:
 	@echo ''
@@ -22,10 +25,10 @@ SHELL = /bin/sh
 LN = ln -s
 
 # (to use the GNU compiler, change cc to gcc in CC)
-CC = cc
+#CC = cc
 BIND = $(CC)
-AS = $(CC) -c
-CPP = /lib/cpp
+#AS = $(CC) -c
+#CPP = /lib/cpp
 E =
 
 # probably can change this to 'install' if you have it
@@ -38,8 +41,8 @@ BINFLAGS = 755
 MANFLAGS = 644
 
 # target directories - where to install executables and man pages to
-prefix = /usr/local
-BINDIR = $(prefix)/bin
+prefix = $(TARGETDIR)/usr/sbin
+BINDIR = $(prefix)
 MANEXT=1
 MANDIR = $(prefix)/man/man$(MANEXT)
 ZIPMANUAL = zip.txt
@@ -57,7 +60,7 @@ IZ_OUR_BZIP2_DIR = bzip2
 #   CFLAGS    flags for C compile
 #   LFLAGS1   flags after output file spec, before obj file list
 #   LFLAGS2   flags after obj file list (libraries, etc)
-CFLAGS_NOOPT = -I. -DUNIX $(LOCAL_ZIP)
+CFLAGS_NOOPT = -I. -DUNIX $(LOCAL_ZIP) -DUNICODE_SUPPORT
 CFLAGS = -O2 $(CFLAGS_NOOPT)
 LFLAGS1 =
 LFLAGS2 = -s
@@ -160,20 +163,20 @@ install:        $(ZIPS)
 	-$(INSTALL_D) $(BINDIR)
 	$(INSTALL_PROGRAM) $(ZIPS) $(BINDIR)
 	-cd $(BINDIR); $(CHMOD) $(BINFLAGS) $(ZIPS)
-	-$(INSTALL_D) $(MANDIR)
-	$(INSTALL_PROGRAM) man/zip.1 $(MANDIR)/zip.$(MANEXT)
-	$(CHMOD) $(MANFLAGS) $(MANDIR)/zip.$(MANEXT)
-	$(INSTALL_PROGRAM) man/zipcloak.1 $(MANDIR)/zipcloak.$(MANEXT)
-	$(CHMOD) $(MANFLAGS) $(MANDIR)/zipcloak.$(MANEXT)
-	$(INSTALL_PROGRAM) man/zipnote.1 $(MANDIR)/zipnote.$(MANEXT)
-	$(CHMOD) $(MANFLAGS) $(MANDIR)/zipnote.$(MANEXT)
-	$(INSTALL_PROGRAM) man/zipsplit.1 $(MANDIR)/zipsplit.$(MANEXT)
-	$(CHMOD) $(MANFLAGS) $(MANDIR)/zipsplit.$(MANEXT)
+	#-$(INSTALL_D) $(MANDIR)
+	#$(INSTALL_PROGRAM) man/zip.1 $(MANDIR)/zip.$(MANEXT)
+	#$(CHMOD) $(MANFLAGS) $(MANDIR)/zip.$(MANEXT)
+	#$(INSTALL_PROGRAM) man/zipcloak.1 $(MANDIR)/zipcloak.$(MANEXT)
+	#$(CHMOD) $(MANFLAGS) $(MANDIR)/zipcloak.$(MANEXT)
+	#$(INSTALL_PROGRAM) man/zipnote.1 $(MANDIR)/zipnote.$(MANEXT)
+	#$(CHMOD) $(MANFLAGS) $(MANDIR)/zipnote.$(MANEXT)
+	#$(INSTALL_PROGRAM) man/zipsplit.1 $(MANDIR)/zipsplit.$(MANEXT)
+	#$(CHMOD) $(MANFLAGS) $(MANDIR)/zipsplit.$(MANEXT)
 
 uninstall:
 	-cd $(BINDIR); rm -f $(ZIPS)
-	-cd $(MANDIR); rm -f \
-	 zip.$(MANEXT) zipcloak.$(MANEXT) zipnote.$(MANEXT) zipsplit.$(MANEXT)
+	#-cd $(MANDIR); rm -f \
+	# zip.$(MANEXT) zipcloak.$(MANEXT) zipnote.$(MANEXT) zipsplit.$(MANEXT)
 
 
 flags:  unix/configure

@@ -10,10 +10,10 @@
 #
 # $Id$
 #
-
+ifneq ($(CONFIG_XDSL_PRODUCT),y)
 include ../config.mk
 include ../config.in
-
+endif
 #
 # Paths
 #

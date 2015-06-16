@@ -1,8 +1,8 @@
 # Makefile for Zip, ZipNote, ZipCloak and ZipSplit
-
+ifneq ($(CONFIG_XDSL_PRODUCT),y)
 include config.mk
 include config.in
-
+endif
 # what you can make ...
 all:
 	@echo ''
@@ -41,7 +41,11 @@ BINFLAGS = 755
 MANFLAGS = 644
 
 # target directories - where to install executables and man pages to
+ifeq ($(CONFIG_XDSL_PRODUCT),y)
+prefix = $(INSTALL_DIR)/usr/sbin
+else
 prefix = $(TARGETDIR)/usr/sbin
+endif
 BINDIR = $(prefix)
 MANEXT=1
 MANDIR = $(prefix)/man/man$(MANEXT)
